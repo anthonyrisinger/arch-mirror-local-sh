@@ -1,0 +1,78 @@
+put the script somewhere ([...]/bin/sync-upstream), and it will create the heirarchy it needs relative to itself.
+
+get started:
+
+) change the variables in the user section as needed
+) run an HTTP server
+) add `sync-upstream` to cron
+
+i recommend not running as root -- use an account called `agent` or similar on the machine.  mirror will be approx 30GB.
+
+example layout:
+
+.
+|-- bin
+|   `-- sync-upstream
+|-- README
+|-- run
+|   `-- master-uwsgi.pid
+|-- share
+|   `-- sync
+|       `-- upstream
+|           `-- exclude
+`-- var
+    |-- lib
+    |   `-- sync
+    |       `-- upstream
+    |           |-- community
+    |           |   `-- os
+    |           |       |-- any [173 entries exceeds filelimit, not opening dir]
+    |           |       |-- i686 [2869 entries exceeds filelimit, not opening dir]
+    |           |       `-- x86_64 [2841 entries exceeds filelimit, not opening dir]
+    |           |-- community-testing
+    |           |   `-- os
+    |           |       |-- i686 [120 entries exceeds filelimit, not opening dir]
+    |           |       `-- x86_64 [119 entries exceeds filelimit, not opening dir]
+    |           |-- core
+    |           |   `-- os
+    |           |       |-- i686 [297 entries exceeds filelimit, not opening dir]
+    |           |       `-- x86_64 [297 entries exceeds filelimit, not opening dir]
+    |           |-- extra
+    |           |   `-- os
+    |           |       |-- any [51 entries exceeds filelimit, not opening dir]
+    |           |       |-- i686 [4202 entries exceeds filelimit, not opening dir]
+    |           |       `-- x86_64 [4199 entries exceeds filelimit, not opening dir]
+    |           |-- lastsync
+    |           |-- multilib
+    |           |   `-- os
+    |           |       |-- i686
+    |           |       `-- x86_64 [198 entries exceeds filelimit, not opening dir]
+    |           |-- multilib-testing
+    |           |   `-- os
+    |           |       |-- i686
+    |           |       `-- x86_64
+    |           |           |-- lib32-libdrm-2.4.27-1-x86_64.pkg.tar.xz -> ../../../pool/community/lib32-libdrm-2.4.27-1-x86_64.pkg.tar.xz
+    |           |           |-- multilib-testing.db -> multilib-testing.db.tar.gz
+    |           |           |-- multilib-testing.db.tar.gz
+    |           |           |-- multilib-testing.db.tar.gz.old
+    |           |           |-- multilib-testing.files -> multilib-testing.files.tar.gz
+    |           |           |-- multilib-testing.files.tar.gz
+    |           |           `-- multilib-testing.files.tar.gz.old
+    |           |-- pool
+    |           |   |-- community [4429 entries exceeds filelimit, not opening dir]
+    |           |   `-- packages [7718 entries exceeds filelimit, not opening dir]
+    |           `-- testing
+    |               `-- os
+    |                   |-- i686 [83 entries exceeds filelimit, not opening dir]
+    |                   `-- x86_64 [83 entries exceeds filelimit, not opening dir]
+    `-- log
+        |-- lighttpd
+        |   `-- error.log
+        `-- sync
+            `-- upstream
+                |-- 2011-06.log.gz
+                |-- 2011-07.log.gz
+                |-- 2011-08.log.gz
+                |-- 2011-09.log.gz
+                |-- 2011-10.log.gz
+                `-- error.log.gz

@@ -1,0 +1,127 @@
+#!/bin/bash
+
+#-----------------------------------------------------------------------------------------------( user config )
+
+# The [:alphanumeric:] name of your repository.
+# e.g. http://mirror.mydomain.net/${NAME}/
+NAME='upstream'
+
+# The upstream mirror to sync from.
+#URI_SRC='rsync://mirror.abc.edu/archlinux/'
+URI_SRC='rsync://mirror.rit.edu/archlinux/'
+
+# Paths and directories are not files -- they MUST include a trailing `/` !!!
+# *MUCH* easier to simply remove the trailing slash if present/when needed
+# vs. hard-coding slashes when combining, etc ... also works properly for
+# relative paths, bare `/` (root), and other corner cases.
+
+# Absolute path to your repository root.
+# Trailing `/` REQUIRED !!!
+PATH_BASE="${HOME:-.}/vfs-sync-${NAME}/"
+
+# Various component paths that will be appended to ${PATH_BASE} ...
+# UNLESS they start with a `/` (absolute path) and thus used as-is.
+# Trailing `/` REQUIRED !!!
+PATH_BIN="bin/"
+PATH_RUN="run/"
+PATH_LOG_SYNC="var/log/sync/${NAME}/"
+PATH_DYN_SYNC="var/lib/sync/${NAME}/"
+PATH_STA_SYNC="share/sync/${NAME}/"
+
+# Array describing our rsync options -- each component is a WORD (`man bash`)
+# `rsync`, ${SOURCE}, ${TARGET}, and `--exclude-from` are added automatically
+OPTS_SYNC=(
+    # Optional flags.
+    '--no-motd'
+    # See: https://wiki.archlinux.org/index.php/DeveloperWiki:NewMirrors
+    '-rtlvH'
+    '--delete-after'
+    '--delay-updates'
+    '--safe-links'
+    '--max-delete=1000'
+)
+
+#-----------------------------------------------------------------------------------------------( auto config )
+
+PID="${$}"
+NOW="$(date +%F.%T)"
+COL=112
+x="${PATH_BASE}${PATH_BIN}"; GEN_PATH_BIN="${x/#*\/\///}"
+x="${PATH_BASE}${PATH_RUN}"; GEN_PATH_RUN="${x/#*\/\///}"
+x="${PATH_BASE}${PATH_LOG_SYNC}"; GEN_PATH_LOG="${x/#*\/\///}"
+x="${PATH_BASE}${PATH_DYN_SYNC}"; GEN_PATH_DEST="${x/#*\/\///}"
+x="${PATH_BASE}${PATH_STA_SYNC}"; GEN_PATH_ASSETS="${x/#*\/\///}"
+x="${GEN_PATH_LOG}${NOW%-??.*}.log.gz"; GEN_FILE_LOG_OUT="${x/#*\/\///}"
+x="${GEN_PATH_LOG}error.log.gz"; GEN_FILE_LOG_ERR="${x/#*\/\///}"
+
+#-----------------------------------------------------------------------------------------------( definitions )
+
+_log () {
+    local ptr="GEN_FILE_LOG_${1}"
+    perl -pne '$|++; use POSIX qw(strftime);print "['${PID}'/'${NAME}' ", 
+        strftime("%F.%T", localtime()), "] ";' | gzip >> "${!ptr}"
+}
+
+_acquire_lock () {
+    if ! flock -n ${LOCK_TARGET}; then
+        echo "Resource locked: ${GEN_PATH_DEST}" >&2
+        exit 1
+    fi
+}
+
+_gen_meta () {
+    local buf label="( sync-${NAME} ${1} ${NOW%.*} )"
+    printf -v buf '%*s' $((${COL} - ${#label})) '';
+    buf="${buf// /-}${label}"
+    echo -e "\n${buf}"
+    printf '%8s: %s\n' 'pid' "${PID}"
+    printf '%8s: %s\n' 'time' "$(date +%F.%T)"
+    printf '%8s: %s\n' 'exec' "${OPTS_SYNC[*]}"
+    printf '%8s: %s\n' 'lock' "${GEN_PATH_DEST}"
+    printf '%8s: (out) %s\n%10s(err) %s\n' 'logs' "${GEN_FILE_LOG_OUT}" '' "${GEN_FILE_LOG_ERR}"
+    echo -e "${buf}\n"
+    return 0
+}
+
+_gen_exclude () {
+    if ! [[ -f ${GEN_PATH_ASSETS}exclude ]]; then
+        echo -e '/archive\n/*staging\n/*unstable\n/iso\n/other\n/sources' > ${GEN_PATH_ASSETS}exclude
+    fi
+    if [[ "${OPTS_SYNC[*]}" == "${OPTS_SYNC[*]/#--exclude-from}" ]]; then
+        OPTS_SYNC+=("--exclude-from=${GEN_PATH_ASSETS}exclude")
+    fi
+}
+
+_sync () {
+    local rsync=$(which rsync 2>&-) 
+    _gen_exclude
+    OPTS_SYNC=("${rsync:=:}" "${OPTS_SYNC[@]}" "${URI_SRC:-rsync://a.b.com}" "${GEN_PATH_DEST}")
+    _gen_meta header
+    "${OPTS_SYNC[@]}"
+}
+
+#-----------------------------------------------------------------------------------------------( preparation )
+
+# Ensure path correctness/existence.
+for x in "${!GEN_PATH_@}"; do
+    mkdir -p "${!x}"
+done
+
+# If verbose, log + stdout/stderr ... else log only (cron/timers/etc).
+if [[ ${1} == '-v' || ${1} == '--verbose' ]]; then
+    exec 1> >({ tee -a /proc/self/fd/3 | _log OUT; } 3>&1 | fold -w ${COL} -s )
+    exec 2> >({ tee -a /proc/self/fd/3 | _log ERR; } 3>&1 | fold -w ${COL} -s >&2)
+else
+    exec 1> >( _log OUT )
+    exec 2> >( _log ERR )
+fi
+
+#------------------------------------------------------------------------------------------------------( main )
+
+trap 'rm -f ${GEN_PATH_RUN}sync-${NAME}.pid' EXIT PIPE INT HUP TERM
+echo ${PID} > ${GEN_PATH_RUN}sync-${NAME}.pid
+
+# Non-block acquire lock or fail.
+time (_acquire_lock; _sync) {LOCK_TARGET}< "${GEN_PATH_DEST}"
+
+exit ${?}
