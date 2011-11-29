@@ -4,7 +4,7 @@
 
 # The [:alphanumeric:] name of your repository.
 # e.g. http://mirror.mydomain.net/${NAME}/
-NAME='upstream'
+NAME='org-archlinux-mirror'
 
 # The upstream mirror to sync from.
 #URI_SRC='rsync://mirror.abc.edu/archlinux/'
@@ -17,7 +17,7 @@ URI_SRC='rsync://mirror.rit.edu/archlinux/'
 
 # Absolute path to your repository root.
 # Trailing `/` REQUIRED !!!
-PATH_BASE="${HOME:-.}/vfs-sync-${NAME}/"
+PATH_BASE="${HOME:-.}/${NAME}/"
 
 # Various component paths that will be appended to ${PATH_BASE} ...
 # UNLESS they start with a `/` (absolute path) and thus used as-is.
@@ -25,7 +25,7 @@ PATH_BASE="${HOME:-.}/vfs-sync-${NAME}/"
 PATH_BIN="bin/"
 PATH_RUN="run/"
 PATH_LOG_SYNC="var/log/sync/${NAME}/"
-PATH_DYN_SYNC="var/lib/sync/${NAME}/"
+PATH_DYN_SYNC="/vmm/${NAME}-2/"
 PATH_STA_SYNC="share/sync/${NAME}/"
 
 # Array describing our rsync options -- each component is a WORD (`man bash`)
