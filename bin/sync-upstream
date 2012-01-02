@@ -53,6 +53,8 @@ x="${PATH_BASE}${PATH_DYN_SYNC}"; GEN_PATH_DEST="${x/#*\/\///}"
 x="${PATH_BASE}${PATH_STA_SYNC}"; GEN_PATH_ASSETS="${x/#*\/\///}"
 x="${GEN_PATH_LOG}${NOW%-??.*}.log.gz"; GEN_FILE_LOG_OUT="${x/#*\/\///}"
 x="${GEN_PATH_LOG}error.log.gz"; GEN_FILE_LOG_ERR="${x/#*\/\///}"
+: ${URI_SRC:=rsync://a.b.com}
+: ${RSYNC:=$(which rsync 2>&-)}
 
 #-----------------------------------------------------------------------------------------------( definitions )
 
@@ -92,12 +94,28 @@ _gen_exclude () {
     fi
 }
 
+_check_last() {
+    local ret=1
+    if [[ ! -e ${GEN_PATH_DEST}lastsync ]]; then
+        touch --date "@1" "${GEN_PATH_DEST}lastsync"
+    fi
+    "${RSYNC}" "${OPTS_SYNC[@]}" --quiet "${URI_SRC}lastsync" "${GEN_PATH_DEST}lastsync-next"
+    [[ ${GEN_PATH_DEST}lastsync -ot ${GEN_PATH_DEST}lastsync-next ]] &&
+        ret=0
+    rm -f "${GEN_PATH_DEST}lastsync-next"
+    return ${ret}
+}
+
 _sync () {
-    local rsync=$(which rsync 2>&-) 
-    _gen_exclude
-    OPTS_SYNC=("${rsync:=:}" "${OPTS_SYNC[@]}" "${URI_SRC:-rsync://a.b.com}" "${GEN_PATH_DEST}")
-    _gen_meta header
-    "${OPTS_SYNC[@]}"
+    if [[ -n ${RSYNC} && -n ${URI_SRC} ]]; then
+        _gen_exclude
+        if _check_last; then
+            _gen_meta header
+            "${RSYNC}" "${OPTS_SYNC[@]}" "${URI_SRC}" "${GEN_PATH_DEST}"
+        else
+            echo "Already up-to-date: [lastsync] $(<"${GEN_PATH_DEST}lastsync")" >&2
+        fi
+    fi
 }
 
 #-----------------------------------------------------------------------------------------------( preparation )
